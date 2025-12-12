@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SessionLog {
+  id        String   @id @default(uuid())
+  sessionId String
+  timestamp DateTime @default(now())
+  score     Float
+  label     String
+  consent   Json     // ConsentState
+  embeddings Json?   // Optional embeddings if logs enabled
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([timestamp])
+}
+
+model UserSettings {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  consent   Json     // ConsentState
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+}
+
+
