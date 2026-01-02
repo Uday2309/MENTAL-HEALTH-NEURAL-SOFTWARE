@@ -148,7 +148,8 @@ class AttentionFusion:
         if text_encoded is not None:
     # Base signal from embedding
             text_signal = np.mean(text_encoded)
-            text_stress = max(0, -text_signal) * 0.6
+            text_stress = max(0, -np.mean(text_signal)) * 0.6
+            modalities.append(('text', text_stress, self.attention_weights['text']))
 
     # Semantic keyword boost (MVP-safe)
             raw_text = ""
