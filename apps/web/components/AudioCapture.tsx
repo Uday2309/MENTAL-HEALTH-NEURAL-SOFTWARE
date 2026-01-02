@@ -22,53 +22,59 @@ export default function AudioCapture({
   const streamRef = useRef<MediaStream | null>(null)
   const [isCapturing, setIsCapturing] = useState(false)
   const [audioLevel, setAudioLevel] = useState(0)
+  const [status, setStatus] = useState<
+    "idle" | "requesting" | "recording" | "error"
+  >("idle")
 
-  useEffect(() => {
-    if (enabled && !isCapturing) {
-      startCapture()
-    } else if (!enabled && isCapturing) {
-      stopCapture()
-    }
-
-    return () => {
-      stopCapture()
-    }
-  }, [enabled])
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+ 
 
   const startCapture = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
-      streamRef.current = stream
+  try {
+    setStatus("requesting")
+    setErrorMsg(null)
 
-      const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)()
-      audioContextRef.current = audioContext
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    })
 
-      const source = audioContext.createMediaStreamSource(stream)
-      const analyser = audioContext.createAnalyser()
-      analyser.fftSize = 2048
-      analyserRef.current = analyser
-      source.connect(analyser)
+    streamRef.current = stream
 
-      setIsCapturing(true)
+    const audioContext = new (window.AudioContext ||
+      (window as any).webkitAudioContext)()
+    audioContextRef.current = audioContext
 
-      // Capture 3-second chunk
-      setTimeout(() => {
-        captureAudio()
-      }, 3000)
+    const source = audioContext.createMediaStreamSource(stream)
+    const analyser = audioContext.createAnalyser()
+    analyser.fftSize = 2048
+    analyserRef.current = analyser
+    source.connect(analyser)
 
-      // Monitor audio level for noise proxy
-      monitorAudioLevel()
-    } catch (error) {
-      onError('Failed to access microphone: ' + (error as Error).message)
-    }
+    setIsCapturing(true)
+    setStatus("recording")
+
+    monitorAudioLevel()
+
+    // Capture after 3 seconds
+    setTimeout(() => {
+      captureAudio()
+      stopCapture()
+    }, 3000)
+  } catch (err) {
+    setStatus("error")
+    setErrorMsg("Microphone permission denied or unavailable.")
+    onError("Microphone permission denied.")
   }
+}
+  const retryAudio = () => {
+  setErrorMsg(null)
+  setStatus("idle")
+}
+
 
   const stopCapture = () => {
     if (streamRef.current) {
@@ -194,29 +200,62 @@ export default function AudioCapture({
       </div>
     )
   }
+return (
+  <div className="border rounded-lg p-4">
+    
 
-  return (
-    <div className="border rounded-lg p-4">
-      <div className="mb-2">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-medium text-gray-700">
-            Audio Level
-          </span>
-          <span className="text-sm text-gray-500">{Math.round(audioLevel)}%</span>
+    {status === "idle" && (
+      <button
+        onClick={startCapture}
+        className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg"
+      >
+        🎤 Start Recording
+      </button>
+    )}
+
+    {status === "requesting" && (
+      <p className="text-sm text-gray-600 text-center">
+        Requesting microphone permission…
+      </p>
+    )}
+
+    {status === "recording" && (
+      <>
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700">
+              Audio Level
+            </span>
+            <span className="text-sm text-gray-500">
+              {Math.round(audioLevel)}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-indigo-600 h-2 rounded-full transition-all"
+              style={{ width: `${audioLevel}%` }}
+            />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-indigo-600 h-2 rounded-full transition-all"
-            style={{ width: `${audioLevel}%` }}
-          />
-        </div>
-      </div>
-      {isCapturing && (
         <div className="text-sm text-indigo-600 text-center mt-2">
-          Recording 3-second sample...
+          Recording 3-second sample…
         </div>
-      )}
-    </div>
-  )
+      </>
+    )}
+
+    {status === "error" && (
+      <div className="text-center">
+        <p className="text-sm text-red-600 mb-2">{errorMsg}</p>
+        <button
+          onClick={retryAudio}
+          className="bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Retry
+        </button>
+      </div>
+    )}
+  </div>
+)
+
 }
 
