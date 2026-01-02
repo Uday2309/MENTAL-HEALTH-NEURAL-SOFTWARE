@@ -17,13 +17,9 @@ app = FastAPI(title="MindWatch API", version="0.1.0")
 
 # CORS middleware
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-    "https://mental-health-neural-software-web.vercel.app",
-    "https://mental-health-neural-soft-git-1b5cd5-uday-kumar-dubeys-projects.vercel.app",
-    "http://localhost:3000",
-    ],
-    allow_credentials=True,
+   CORSMiddleware,
+    allow_origins=["*"],   # allow all for MVP
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
