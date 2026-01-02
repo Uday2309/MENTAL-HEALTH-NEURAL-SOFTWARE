@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import numpy as np
-from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -17,14 +16,17 @@ app = FastAPI(title="MindWatch API", version="0.1.0")
 
 # CORS middleware
 app.add_middleware(
-   CORSMiddleware,
-    allow_origins=["*"],   # allow all for MVP
+    CORSMiddleware,
+    allow_origins=["*"],   # MVP
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Request/Response models
+# ─────────────────────────────────────────────
+# MODELS
+# ─────────────────────────────────────────────
+
 class ConsentState(BaseModel):
     vision: bool = False
     audio: bool = False
@@ -34,210 +36,142 @@ class ConsentState(BaseModel):
 
 
 class InferenceRequest(BaseModel):
-    hv: Optional[List[float]] = None  # Vision embedding (32 dims)
-    ha: Optional[List[float]] = None  # Audio embedding (32 dims)
-    ht: Optional[List[float]] = None  # Text embedding (16 dims)
-    hc: Optional[List[float]] = None  # Context embedding (8 dims)
+    hv: Optional[List[float]] = None
+    ha: Optional[List[float]] = None
+    ht: Optional[List[float]] = None
+    hc: Optional[List[float]] = None
     meta: Dict
 
 
 class InferenceResponse(BaseModel):
-    score: float  # 0-1, where 0=low stress, 1=high stress
-    label: str  # 'GREEN' | 'AMBER' | 'RED'
+    score: float
+    label: str
     explanation: List[str]
     modalityWeights: Dict[str, float]
     topFactors: List[Dict[str, Any]]
 
+# ─────────────────────────────────────────────
+# ENCODERS
+# ─────────────────────────────────────────────
 
-# Stub encoders (in production, these would be trained models)
 class VisionEncoder:
-    """Stub CNN encoder for vision features"""
-    
     def encode(self, embedding: List[float]) -> np.ndarray:
-        # Stub: simple normalization and projection
         arr = np.array(embedding, dtype=np.float32)
-        # Normalize
         arr = (arr - arr.mean()) / (arr.std() + 1e-8)
-        # Project to 64-dim space (stub)
-        if len(arr) < 64:
-            arr = np.pad(arr, (0, 64 - len(arr)), mode='constant')
-        return arr[:64]
+        return np.pad(arr, (0, max(0, 64 - len(arr))))[:64]
 
 
 class AudioEncoder:
-    """Stub BiLSTM encoder for audio features"""
-    
     def encode(self, embedding: List[float]) -> np.ndarray:
-        # Stub: simple normalization and projection
         arr = np.array(embedding, dtype=np.float32)
-        # Normalize
         arr = (arr - arr.mean()) / (arr.std() + 1e-8)
-        # Project to 64-dim space (stub)
-        if len(arr) < 64:
-            arr = np.pad(arr, (0, 64 - len(arr)), mode='constant')
-        return arr[:64]
+        return np.pad(arr, (0, max(0, 64 - len(arr))))[:64]
 
 
 class TextEncoder:
-    """Stub BiLSTM encoder for text features"""
-    
     def encode(self, embedding: List[float]) -> np.ndarray:
-        # Stub: simple normalization and projection
         arr = np.array(embedding, dtype=np.float32)
-        # Normalize
         arr = (arr - arr.mean()) / (arr.std() + 1e-8)
-        # Project to 32-dim space (stub)
-        if len(arr) < 32:
-            arr = np.pad(arr, (0, 32 - len(arr)), mode='constant')
-        return arr[:32]
+        return np.pad(arr, (0, max(0, 32 - len(arr))))[:32]
 
 
 class ContextEncoder:
-    """Stub MLP encoder for context features"""
-    
     def encode(self, embedding: List[float]) -> np.ndarray:
-        # Stub: simple normalization and projection
         arr = np.array(embedding, dtype=np.float32)
-        # Normalize
         arr = (arr - arr.mean()) / (arr.std() + 1e-8)
-        # Project to 16-dim space (stub)
-        if len(arr) < 16:
-            arr = np.pad(arr, (0, 16 - len(arr)), mode='constant')
-        return arr[:16]
+        return np.pad(arr, (0, max(0, 16 - len(arr))))[:16]
 
+# ─────────────────────────────────────────────
+# FUSION (FIXED)
+# ─────────────────────────────────────────────
 
-# Transformer-style attention fusion (stub)
 class AttentionFusion:
-    """Stub transformer-style attention fusion head"""
-    
     def __init__(self):
-        # Stub: simple attention weights
         self.attention_weights = {
-            'vision': 0.3,
-            'audio': 0.3,
-            'text': 0.2,
-            'context': 0.2,
+            "vision": 0.3,
+            "audio": 0.3,
+            "text": 0.2,
+            "context": 0.2,
         }
-    
+
     def fuse(
         self,
-        vision_encoded: Optional[np.ndarray] = None,
-        audio_encoded: Optional[np.ndarray] = None,
-        text_encoded: Optional[np.ndarray] = None,
-        context_encoded: Optional[np.ndarray] = None,
-    ) -> tuple[float, Dict[str, float], List[Dict[str, Any]]]:
-        """
-        Fuse multimodal embeddings using attention mechanism (stub)
-        Returns: (stress_score, modality_weights, top_factors)
-        """
+        vision_encoded=None,
+        audio_encoded=None,
+        text_encoded=None,
+        context_encoded=None,
+        raw_text: str = "",
+    ):
         modalities = []
         weights = {}
-        
+
         if vision_encoded is not None:
-            # Stub: compute stress indicator from vision
-            vision_stress = np.mean(np.abs(vision_encoded)) * 0.5
-            modalities.append(('vision', vision_stress, self.attention_weights['vision']))
-            weights['v'] = self.attention_weights['vision']
-        
+            stress = float(np.mean(np.abs(vision_encoded))) * 0.5
+            modalities.append(("vision", stress, 0.3))
+            weights["v"] = 0.3
+
         if audio_encoded is not None:
-            # Stub: compute stress indicator from audio
-            audio_stress = np.mean(np.abs(audio_encoded)) * 0.4
-            modalities.append(('audio', audio_stress, self.attention_weights['audio']))
-            weights['a'] = self.attention_weights['audio']
-        
+            stress = float(np.mean(np.abs(audio_encoded))) * 0.4
+            modalities.append(("audio", stress, 0.3))
+            weights["a"] = 0.3
+
         if text_encoded is not None:
-    # Base signal from embedding
-            text_signal = np.mean(text_encoded)
-            text_stress = max(0, -np.mean(text_signal)) * 0.6
-            modalities.append(('text', text_stress, self.attention_weights['text']))
+            base_signal = max(0.0, -float(np.mean(text_encoded))) * 0.6
 
-    # Semantic keyword boost (MVP-safe)
-            raw_text = ""
-        if isinstance(request.meta, dict):
-            raw_text = request.meta.get("raw_text", "").lower()
+            CRISIS_KEYWORDS = [
+                "panic", "anxiety", "stress", "chest",
+                "tight", "overwhelmed", "fear", "helpless"
+            ]
 
-        CRISIS_KEYWORDS = [
-        "panic", "anxiety", "stress", "chest",
-        "can't breathe", "tight", "overwhelmed",
-        "fear", "helpless"
-    ]
+            keyword_boost = sum(
+                0.15 for word in CRISIS_KEYWORDS if word in raw_text
+            )
 
-        keyword_boost = 0.0
-        for word in CRISIS_KEYWORDS:
-           if word in raw_text:
-             keyword_boost += 0.15
-
-        text_stress = min(1.0, text_stress + keyword_boost)
-
-        modalities.append(('text', text_stress, self.attention_weights['text']))
-        weights['t'] = self.attention_weights['text']
+            stress = min(1.0, base_signal + keyword_boost)
+            modalities.append(("text", stress, 0.2))
+            weights["t"] = 0.2
 
         if context_encoded is not None:
-            # Stub: compute stress indicator from context
-            # Higher noise, later hours = higher stress
-            context_stress = np.mean(context_encoded) * 0.3
-            modalities.append(('context', context_stress, self.attention_weights['context']))
-            weights['c'] = self.attention_weights['context']
-        
-        # Normalize weights
-        total_weight = sum(weights.values())
-        if total_weight > 0:
-            weights = {k: v / total_weight for k, v in weights.items()}
-        else:
-            weights = {'v': 0.0, 'a': 0.0, 't': 0.0, 'c': 0.0}
-        
-        # Weighted fusion
-        # Weighted fusion
-        if modalities:
-           raw_score = sum(stress * weight for _, stress, weight in modalities)
+            stress = float(np.mean(context_encoded)) * 0.3
+            modalities.append(("context", stress, 0.2))
+            weights["c"] = 0.2
 
-    # Amplify signal (critical)
-           stress_score = raw_score * 1.8
-           stress_score = stress_score - 0.15
+        if not modalities:
+            return 0.5, {}, []
 
+        raw_score = sum(s * w for _, s, w in modalities)
+        stress_score = min(1.0, max(0.0, raw_score * 1.8 - 0.15))
 
-    # Clamp
-           stress_score = max(0.0, min(1.0, stress_score))
-        else:
-           stress_score = 0.5 
- 
-        
-        
-        if stress_score < 0.4:
-           label = 'GREEN'
-        elif stress_score < 0.7:
-           label = 'AMBER'
-        else:
-           label = 'RED'
-
-        
-        # Generate top factors
         top_factors = sorted(
-            [(mod, stress, weight) for mod, stress, weight in modalities],
+            modalities,
             key=lambda x: x[1] * x[2],
             reverse=True
-        )[:3]
-        
-        factors = [
-    {
-        'modality': mod,
-        'impact': stress * weight * 100,
-        'description': f'{mod.capitalize()} features indicate {"high" if stress > 0.5 else "moderate" if stress > 0.3 else "low"} stress levels'
-    }
-    for mod, stress, weight in top_factors
-]
+        )
 
-        
+        factors = [
+            {
+                "modality": m,
+                "impact": round(s * w * 100, 2),
+                "description": f"{m.capitalize()} contributed to stress"
+            }
+            for m, s, w in top_factors[:3]
+        ]
+
         return stress_score, weights, factors
 
+# ─────────────────────────────────────────────
+# INIT
+# ─────────────────────────────────────────────
 
-# Initialize encoders and fusion
 vision_encoder = VisionEncoder()
 audio_encoder = AudioEncoder()
 text_encoder = TextEncoder()
 context_encoder = ContextEncoder()
 fusion = AttentionFusion()
 
+# ─────────────────────────────────────────────
+# ROUTES
+# ─────────────────────────────────────────────
 
 @app.get("/")
 async def root():
@@ -251,89 +185,37 @@ async def health():
 
 @app.post("/infer", response_model=InferenceResponse)
 async def infer(request: InferenceRequest):
-    """
-    Run fusion inference on multimodal embeddings
-    """
     try:
-        # Validate at least one modality is provided
         if not any([request.hv, request.ha, request.ht, request.hc]):
-            raise HTTPException(
-                status_code=400,
-                detail="At least one modality embedding must be provided"
-            )
-        
-        # Encode each modality
-        vision_encoded = None
-        audio_encoded = None
-        text_encoded = None
-        context_encoded = None
-        
-        if request.hv:
-            vision_encoded = vision_encoder.encode(request.hv)
-        
-        if request.ha:
-            audio_encoded = audio_encoder.encode(request.ha)
-        
-        if request.ht:
-            text_encoded = text_encoder.encode(request.ht)
-        
-        if request.hc:
-            context_encoded = context_encoder.encode(request.hc)
-        
-        # Fuse using attention mechanism
-        stress_score, modality_weights, top_factors = fusion.fuse(
-            vision_encoded=vision_encoded,
-            audio_encoded=audio_encoded,
-            text_encoded=text_encoded,
-            context_encoded=context_encoded,
+            raise HTTPException(400, "At least one modality required")
+
+        vision = vision_encoder.encode(request.hv) if request.hv else None
+        audio = audio_encoder.encode(request.ha) if request.ha else None
+        text = text_encoder.encode(request.ht) if request.ht else None
+        context = context_encoder.encode(request.hc) if request.hc else None
+
+        raw_text = request.meta.get("raw_text", "").lower()
+
+        score, weights, factors = fusion.fuse(
+            vision, audio, text, context, raw_text
         )
-        
-        # Generate explanation
-        explanation = []
-        if stress_score < 0.33:
-            explanation.append("Your stress levels appear to be low.")
-            explanation.append("Keep up the good work and maintain healthy routines.")
-        elif stress_score < 0.67:
-            explanation.append("Your stress levels appear to be moderate.")
-            explanation.append("Consider taking a break or practicing relaxation techniques.")
-        else:
-            explanation.append("Your stress levels appear to be elevated.")
-            explanation.append("Consider reaching out for support or taking immediate rest.")
-        
-        # Add modality-specific insights
-        if vision_encoded is not None:
-            explanation.append("Facial features were analyzed for stress indicators.")
-        if audio_encoded is not None:
-            explanation.append("Voice features were analyzed for stress indicators.")
-        if text_encoded is not None:
-            explanation.append("Text sentiment was analyzed for stress indicators.")
-        if context_encoded is not None:
-            explanation.append("Contextual factors (location, time, noise) were considered.")
-        
-        response = InferenceResponse(
-            score=float(stress_score),
-            label=('GREEN' if stress_score < 0.33 else 'AMBER' if stress_score < 0.67 else 'RED'),
+
+        explanation = (
+            ["Your stress levels appear to be low."]
+            if score < 0.4 else
+            ["Your stress levels appear to be moderate."]
+            if score < 0.7 else
+            ["Your stress levels appear to be elevated."]
+        )
+
+        return InferenceResponse(
+            score=score,
+            label="GREEN" if score < 0.4 else "AMBER" if score < 0.7 else "RED",
             explanation=explanation,
-            modalityWeights={
-                'v': float(modality_weights.get('v', 0.0)),
-                'a': float(modality_weights.get('a', 0.0)),
-                't': float(modality_weights.get('t', 0.0)),
-                'c': float(modality_weights.get('c', 0.0)),
-            },
-            topFactors=top_factors,
+            modalityWeights=weights,
+            topFactors=factors,
         )
-        
-        logger.info(f"Inference completed: score={stress_score:.3f}, label={response.label}")
-        
-        return response
-    
+
     except Exception as e:
-        logger.error(f"Inference error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
+        logger.exception("Inference error")
+        raise HTTPException(500, f"Inference failed: {str(e)}")
