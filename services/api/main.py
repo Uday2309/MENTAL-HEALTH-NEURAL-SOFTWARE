@@ -18,12 +18,15 @@ app = FastAPI(title="MindWatch API", version="0.1.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000"],
+    allow_origins=[
+    "https://mental-health-neural-software-web.vercel.app",
+    "https://mental-health-neural-soft-git-1b5cd5-uday-kumar-dubeys-projects.vercel.app",
+    "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # Request/Response models
 class ConsentState(BaseModel):
