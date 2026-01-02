@@ -146,22 +146,31 @@ class AttentionFusion:
             weights['a'] = self.attention_weights['audio']
         
         if text_encoded is not None:
-            # Stub: compute stress indicator from text
-            # Negative polarity = higher stress
-            polarity_signal = -np.mean(text_encoded)  # negative = stress
-            # Text stress should be driven by NEGATIVE polarity, not embedding magnitude
-            text_polarity = np.mean(text_encoded)
+    # Base signal from embedding
+            text_signal = np.mean(text_encoded)
+            text_stress = max(0, -text_signal) * 0.6
 
-# Negative polarity → stress
-            text_stress = max(0.0, -text_polarity)
+    # Semantic keyword boost (MVP-safe)
+            raw_text = ""
+        if isinstance(request.meta, dict):
+            raw_text = request.meta.get("raw_text", "").lower()
 
-# Scale conservatively
-            text_stress = min(text_stress * 0.8, 1.0)
+        CRISIS_KEYWORDS = [
+        "panic", "anxiety", "stress", "chest",
+        "can't breathe", "tight", "overwhelmed",
+        "fear", "helpless"
+    ]
 
+        keyword_boost = 0.0
+        for word in CRISIS_KEYWORDS:
+           if word in raw_text:
+             keyword_boost += 0.15
 
-            modalities.append(('text', text_stress, self.attention_weights['text']))
-            weights['t'] = self.attention_weights['text']
-        
+        text_stress = min(1.0, text_stress + keyword_boost)
+
+        modalities.append(('text', text_stress, self.attention_weights['text']))
+        weights['t'] = self.attention_weights['text']
+
         if context_encoded is not None:
             # Stub: compute stress indicator from context
             # Higher noise, later hours = higher stress

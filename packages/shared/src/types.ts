@@ -21,6 +21,7 @@ export interface InferenceRequest {
     sessionId: string;
     consent: ConsentState;
     timestamp: string;
+    raw_text?: string;
   };
 }
 
