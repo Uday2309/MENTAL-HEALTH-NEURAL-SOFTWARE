@@ -172,7 +172,9 @@ class AttentionFusion:
            raw_score = sum(stress * weight for _, stress, weight in modalities)
 
     # Amplify signal (critical)
-           stress_score = raw_score * 2.5  
+           stress_score = raw_score * 1.2
+           stress_score = stress_score - 0.15
+
 
     # Clamp
            stress_score = max(0.0, min(1.0, stress_score))
