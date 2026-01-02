@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import type { InferenceRequest, InferenceResponse } from '@mindwatch/shared'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = "https://mental-health-api-v2.onrender.com"
+
 
 export async function runInference(
   request: InferenceRequest
