@@ -14,7 +14,6 @@ export async function runInference(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(request),
-    signal: AbortSignal.timeout(10000), // 10s timeout
   })
 
   if (!response.ok) {
@@ -24,6 +23,7 @@ export async function runInference(
 
   return response.json()
 }
+
 
 export function useInference() {
   const [isLoading, setIsLoading] = useState(false)
