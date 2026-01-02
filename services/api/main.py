@@ -148,7 +148,7 @@ class AttentionFusion:
         if text_encoded is not None:
             # Stub: compute stress indicator from text
             # Negative polarity = higher stress
-            text_stress = max(0, -np.mean(text_encoded)) * 0.6
+            text_stress = np.mean(np.abs(text_encoded)) * 0.6
             modalities.append(('text', text_stress, self.attention_weights['text']))
             weights['t'] = self.attention_weights['text']
         
